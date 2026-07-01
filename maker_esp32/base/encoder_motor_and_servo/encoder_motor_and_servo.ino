@@ -1,15 +1,4 @@
 /**
- * @~Chinese
- * @brief 使用CodexPad-S10手柄控制4个编码电机和4个舵机。
- * @details 通过手柄按钮控制编码4个电机和4个舵机：
- *          - 上方向按钮（按住）：4个编码电机同时正转（PWM占空比 1023）。
- *          - 下方向按钮（按住）：4个编码电机同时反转（PWM占空比 -1023）。
- *          - Cross按钮（按住）：4个编码电机刹车（调用Stop方法），刹车优先级最高。
- *          - Square按钮（按下）：设置4个舵机角度为 0 度。
- *          - Triangle按钮（按下）：设置4个舵机角度为 90 度。
- *          - Circle按钮（按下）：设置4个舵机角度为 180 度。
- */
-/**
  * @~English
  * @brief Control 4 encoder motors and 4 servos using CodexPad-S10 gamepad.
  * @details Control 4 encoder motors and 4 servos with gamepad buttons:
@@ -20,15 +9,44 @@
  *          - Triangle button (pressed): Set all 4 servos to 90 degrees.
  *          - Circle button (pressed): Set all 4 servos to 180 degrees.
  */
+/**
+ * @~Chinese
+ * @brief 使用CodexPad-S10手柄控制4个编码电机和4个舵机。
+ * @details 通过手柄按钮控制编码4个电机和4个舵机：
+ *          - 上方向按钮（按住）：4个编码电机同时正转（PWM占空比 1023）。
+ *          - 下方向按钮（按住）：4个编码电机同时反转（PWM占空比 -1023）。
+ *          - Cross按钮（按住）：4个编码电机刹车（调用Stop方法），刹车优先级最高。
+ *          - Square按钮（按下）：设置4个舵机角度为 0 度。
+ *          - Triangle按钮（按下）：设置4个舵机角度为 90 度。
+ *          - Circle按钮（按下）：设置4个舵机角度为 180 度。
+ */
 
 #include "codex_pad.h"
 #include "encoder_motor.h"
 #include "motor.h"
 #include "servo.h"
 
+/**
+ * IMPORTANT:
+ * This using directive is REQUIRED to directly access `Button` and `Axis`.
+ * Without it, you must write the fully qualified names:
+ *   gamepad::input::Button::kUp
+ *   gamepad::input::Axis::kLeftStickX
+ * Forgetting this line will cause compile errors when using Button or Axis.
+ */
+/**
+ * 重要：
+ * 必须使用该命名空间，否则无法直接访问 `Button` 和 `Axis`。
+ * 如果没有这一行，就必须写成完整限定名：
+ *   gamepad::input::Button::kUp
+ *   gamepad::input::Axis::kLeftStickX
+ * 忘记引入命名空间会导致编译失败。
+ */
+using namespace gamepad::input;
+
 namespace {
-// 替换为你的 CodexPad 的 Bluetooth device address。
 // Replace with your CodexPad device's Bluetooth device address.
+// 替换为你的 CodexPad 的 Bluetooth device address。
 const std::string kBluetoothDeviceAddress = "16:00:00:00:03:27";
 
 constexpr gpio_num_t kServo0Pin = GPIO_NUM_26;  // 舵机0引脚。 | Servo 0 pin.
@@ -38,23 +56,31 @@ constexpr gpio_num_t kServo3Pin = GPIO_NUM_32;  // 舵机3引脚。 | Servo 3 pi
 
 constexpr gpio_num_t kEncoderMotor0PositivePin = GPIO_NUM_27;  // 编码电机0正极引脚。 | Encoder motor 0 positive pin.
 constexpr gpio_num_t kEncoderMotor0NegativePin = GPIO_NUM_13;  // 编码电机0负极引脚。 | Encoder motor 0 negative pin.
-constexpr gpio_num_t kEncoderMotor0EncoderPinA = GPIO_NUM_18;  // 编码电机0编码器A相引脚。 | Encoder motor 0 encoder phase A pin.
-constexpr gpio_num_t kEncoderMotor0EncoderPinB = GPIO_NUM_19;  // 编码电机0编码器B相引脚。 | Encoder motor 0 encoder phase B pin.
+// 编码电机0编码器A相引脚。 | Encoder motor 0 encoder phase A pin.
+constexpr gpio_num_t kEncoderMotor0EncoderPinA = GPIO_NUM_18;
+// 编码电机0编码器B相引脚。 | Encoder motor 0 encoder phase B pin.
+constexpr gpio_num_t kEncoderMotor0EncoderPinB = GPIO_NUM_19;
 
-constexpr gpio_num_t kEncoderMotor1PositivePin = GPIO_NUM_4;   // 编码电机1正极引脚。 | Encoder motor 1 positive pin.
-constexpr gpio_num_t kEncoderMotor1NegativePin = GPIO_NUM_2;   // 编码电机1负极引脚。 | Encoder motor 1 negative pin.
-constexpr gpio_num_t kEncoderMotor1EncoderPinA = GPIO_NUM_5;   // 编码电机1编码器A相引脚。 | Encoder motor 1 encoder phase A pin.
-constexpr gpio_num_t kEncoderMotor1EncoderPinB = GPIO_NUM_23;  // 编码电机1编码器B相引脚。 | Encoder motor 1 encoder phase B pin.
+constexpr gpio_num_t kEncoderMotor1PositivePin = GPIO_NUM_4;  // 编码电机1正极引脚。 | Encoder motor 1 positive pin.
+constexpr gpio_num_t kEncoderMotor1NegativePin = GPIO_NUM_2;  // 编码电机1负极引脚。 | Encoder motor 1 negative pin.
+// 编码电机1编码器A相引脚。 | Encoder motor 1 encoder phase A pin.
+constexpr gpio_num_t kEncoderMotor1EncoderPinA = GPIO_NUM_5;
+// 编码电机1编码器B相引脚。 | Encoder motor 1 encoder phase B pin.
+constexpr gpio_num_t kEncoderMotor1EncoderPinB = GPIO_NUM_23;
 
 constexpr gpio_num_t kEncoderMotor2PositivePin = GPIO_NUM_17;  // 编码电机2正极引脚。 | Encoder motor 2 positive pin.
 constexpr gpio_num_t kEncoderMotor2NegativePin = GPIO_NUM_12;  // 编码电机2负极引脚。 | Encoder motor 2 negative pin.
-constexpr gpio_num_t kEncoderMotor2EncoderPinA = GPIO_NUM_35;  // 编码电机2编码器A相引脚。 | Encoder motor 2 encoder phase A pin.
-constexpr gpio_num_t kEncoderMotor2EncoderPinB = GPIO_NUM_36;  // 编码电机2编码器B相引脚。 | Encoder motor 2 encoder phase B pin.
+// 编码电机2编码器A相引脚。 | Encoder motor 2 encoder phase A pin.
+constexpr gpio_num_t kEncoderMotor2EncoderPinA = GPIO_NUM_35;
+// 编码电机2编码器B相引脚。 | Encoder motor 2 encoder phase B pin.
+constexpr gpio_num_t kEncoderMotor2EncoderPinB = GPIO_NUM_36;
 
 constexpr gpio_num_t kEncoderMotor3PositivePin = GPIO_NUM_15;  // 编码电机3正极引脚。 | Encoder motor 3 positive pin.
 constexpr gpio_num_t kEncoderMotor3NegativePin = GPIO_NUM_14;  // 编码电机3负极引脚。 | Encoder motor 3 negative pin.
-constexpr gpio_num_t kEncoderMotor3EncoderPinA = GPIO_NUM_34;  // 编码电机3编码器A相引脚。 | Encoder motor 3 encoder phase A pin.
-constexpr gpio_num_t kEncoderMotor3EncoderPinB = GPIO_NUM_39;  // 编码电机3编码器B相引脚。 | Encoder motor 3 encoder phase B pin.
+// 编码电机3编码器A相引脚。 | Encoder motor 3 encoder phase A pin.
+constexpr gpio_num_t kEncoderMotor3EncoderPinA = GPIO_NUM_34;
+// 编码电机3编码器B相引脚。 | Encoder motor 3 encoder phase B pin.
+constexpr gpio_num_t kEncoderMotor3EncoderPinB = GPIO_NUM_39;
 
 constexpr uint32_t kEncoderPpr = 12;      // 每转脉冲数。 | Pulses per revolution.
 constexpr uint32_t kReductionRatio = 90;  // 减速比。 | Reduction ratio.
@@ -72,7 +98,8 @@ constexpr uint16_t kServoPulseWidthUsMax = 2500;  // 最大脉宽，单位微秒
 constexpr uint8_t kServoUpdateIntervalMs = 100;   // 舵机更新间隔，单位毫秒。 | Servo update interval in milliseconds.
 constexpr uint32_t kMotorUpdateIntervalMs = 100;  // 电机更新间隔时间，单位毫秒。 | Motor update interval in milliseconds.
 
-constexpr uint32_t kConnectionTimeoutMs = 5000;  // 连接手柄超时时间，单位毫秒。 | Connection timeout for gamepad in milliseconds.
+// 连接手柄超时时间，单位毫秒。 | Connection timeout for gamepad in milliseconds.
+constexpr uint32_t kConnectionTimeoutMs = 5000;
 
 uint32_t g_servo_last_update_time = 0;
 uint32_t g_motor_last_update_time = 0;
@@ -84,41 +111,21 @@ em::Servo g_servo_2(kServo2Pin, 0, kServoAngleMax, kServoPulseWidthUsMin, kServo
 em::Servo g_servo_3(kServo3Pin, 0, kServoAngleMax, kServoPulseWidthUsMin, kServoPulseWidthUsMax);
 
 // 四个编码电机对象 | Four encoder motor objects
-em::EncoderMotor g_encoder_motor_0(kEncoderMotor0PositivePin,
-                                   kEncoderMotor0NegativePin,
-                                   kEncoderMotor0EncoderPinA,
-                                   kEncoderMotor0EncoderPinB,
-                                   kEncoderPpr,
-                                   kReductionRatio,
-                                   kEncoderPhaseRelation);
-em::EncoderMotor g_encoder_motor_1(kEncoderMotor1PositivePin,
-                                   kEncoderMotor1NegativePin,
-                                   kEncoderMotor1EncoderPinA,
-                                   kEncoderMotor1EncoderPinB,
-                                   kEncoderPpr,
-                                   kReductionRatio,
-                                   kEncoderPhaseRelation);
-em::EncoderMotor g_encoder_motor_2(kEncoderMotor2PositivePin,
-                                   kEncoderMotor2NegativePin,
-                                   kEncoderMotor2EncoderPinA,
-                                   kEncoderMotor2EncoderPinB,
-                                   kEncoderPpr,
-                                   kReductionRatio,
-                                   kEncoderPhaseRelation);
-em::EncoderMotor g_encoder_motor_3(kEncoderMotor3PositivePin,
-                                   kEncoderMotor3NegativePin,
-                                   kEncoderMotor3EncoderPinA,
-                                   kEncoderMotor3EncoderPinB,
-                                   kEncoderPpr,
-                                   kReductionRatio,
-                                   kEncoderPhaseRelation);
+em::EncoderMotor g_encoder_motor_0(kEncoderMotor0PositivePin, kEncoderMotor0NegativePin, kEncoderMotor0EncoderPinA,
+                                   kEncoderMotor0EncoderPinB, kEncoderPpr, kReductionRatio, kEncoderPhaseRelation);
+em::EncoderMotor g_encoder_motor_1(kEncoderMotor1PositivePin, kEncoderMotor1NegativePin, kEncoderMotor1EncoderPinA,
+                                   kEncoderMotor1EncoderPinB, kEncoderPpr, kReductionRatio, kEncoderPhaseRelation);
+em::EncoderMotor g_encoder_motor_2(kEncoderMotor2PositivePin, kEncoderMotor2NegativePin, kEncoderMotor2EncoderPinA,
+                                   kEncoderMotor2EncoderPinB, kEncoderPpr, kReductionRatio, kEncoderPhaseRelation);
+em::EncoderMotor g_encoder_motor_3(kEncoderMotor3PositivePin, kEncoderMotor3NegativePin, kEncoderMotor3EncoderPinA,
+                                   kEncoderMotor3EncoderPinB, kEncoderPpr, kReductionRatio, kEncoderPhaseRelation);
 
 CodexPad g_codex_pad;
 
 void Connect() {
   printf("Start to connect %s\n", kBluetoothDeviceAddress.c_str());
-  // 连接到指定蓝牙设备地址的手柄。
   // Connect to the CodexPad with specified Bluetooth device address.
+  // 连接到指定蓝牙设备地址的手柄。
   while (!g_codex_pad.Connect(kBluetoothDeviceAddress, kConnectionTimeoutMs)) {
     printf("Retry to connect %s\n", kBluetoothDeviceAddress.c_str());
   }
@@ -129,13 +136,13 @@ void Connect() {
     printf("Remote Bluetooth Device Address: unknown.\n");
   }
 
-  // 设置发射功率为0dBm。
-  // 发射功率影响通信距离和功耗：功率越高，通信距离越远，但功耗也越大。
-  // 建议根据实际应用场景选择合适的功率等级以平衡距离和电池寿命。
   // Set transmission power to 0dBm.
   // Transmission power affects communication range and power consumption:
   // Higher power provides longer range but consumes more battery.
   // Choose appropriate power level based on your application to balance range and battery life.
+  // 设置发射功率为0dBm。
+  // 发射功率影响通信距离和功耗：功率越高，通信距离越远，但功耗也越大。
+  // 建议根据实际应用场景选择合适的功率等级以平衡距离和电池寿命。
   if (g_codex_pad.set_remote_tx_power(CodexPad::TxPower::k0dBm)) {
     printf("Set remote tx power to 0dBm successfully.\n");
   }
@@ -198,13 +205,41 @@ void setup() {
 }
 
 void loop() {
-  // 重要：Update()方法必须在循环中尽可能频繁地调用，不能添加延时。
-  // 该方法负责处理所有接收到的蓝牙数据包，延时会导致数据丢失和响应延迟。
-  // 对于实时控制应用，必须保持高频率调用以确保及时响应手柄输入。
-  // Important: Update() method must be called as frequently as possible in the loop, no delays should be added.
-  // This method processes all received Bluetooth packets, delays will cause data loss and response lag.
-  // For real-time control applications, high-frequency calls are essential to ensure prompt response to gamepad input.
-  g_codex_pad.Update();
+  // ==========================================================================
+  // 🔴 CRITICAL: Call Update() as frequently as possible in loop()
+  // ==========================================================================
+  // • Update() processes incoming Bluetooth packets from the CodexPad
+  // • Any delay(...) or long blocking code WILL cause:
+  //     - Packet loss
+  //     - Input lag
+  //     - Unstable connection
+  //
+  // • For real-time control, call Update() every loop iteration
+  //   without any blocking operations
+  //
+  // 🔴【重要】Update() 必须在 loop() 中尽可能高频调用
+  // • Update() 负责处理来自 CodexPad 的蓝牙数据包
+  // • 任何形式的 delay 或阻塞代码都会导致：
+  //     - 数据丢失
+  //     - 响应延迟
+  //     - 连接不稳定
+  //
+  // • 实时控制应用中，必须每轮循环都调用 Update()，不可阻塞
+  // ==========================================================================
+  const Tracker& it = g_codex_pad.Update();
+  // ==========================================================================
+  // Tracker: Gamepad Input Snapshot & Change Engine
+  // ==========================================================================
+  // • Returned by Update()
+  // • Maintains previous and current input snapshots
+  // • Enables edge detection and delta detection
+  //
+  // Tracker 由 Update() 返回
+  // 内部保存上一帧和当前帧的输入数据
+  // 支持边沿检测和差值检测
+  //
+  // 📚 https://codexpad.github.io/gamepad_input_arduino_lib/
+  // ==========================================================================
 
   if (!g_codex_pad.is_connected()) {
     printf("Disconnected, start to reconnect.\n");
@@ -213,7 +248,7 @@ void loop() {
   }
 
   if (millis() - g_motor_last_update_time >= kMotorUpdateIntervalMs) {
-    if (g_codex_pad.holding(CodexPad::Button::kCrossA)) {
+    if (it.holding(Button::kCrossA)) {
       // Cross按钮：刹车 | Cross button: brake.
       printf("Brake.\n");
       g_encoder_motor_0.Stop();
@@ -221,7 +256,7 @@ void loop() {
       g_encoder_motor_2.Stop();
       g_encoder_motor_3.Stop();
       g_motor_last_update_time = millis();
-    } else if (g_codex_pad.holding(CodexPad::Button::kUp) && !g_codex_pad.holding(CodexPad::Button::kDown)) {
+    } else if (it.holding(Button::kUp) && !it.holding(Button::kDown)) {
       // 上方向键：电机正转 | Up button: move forward.
       printf("Forward.\n");
       g_encoder_motor_0.RunPwmDuty(em::Motor::kMaxPwmDuty);
@@ -229,7 +264,7 @@ void loop() {
       g_encoder_motor_2.RunPwmDuty(em::Motor::kMaxPwmDuty);
       g_encoder_motor_3.RunPwmDuty(em::Motor::kMaxPwmDuty);
       g_motor_last_update_time = millis();
-    } else if (g_codex_pad.holding(CodexPad::Button::kDown) && !g_codex_pad.holding(CodexPad::Button::kUp)) {
+    } else if (it.holding(Button::kDown) && !it.holding(Button::kUp)) {
       // 下方向键：电机反转 | Down button: move backward.
       printf("Reverse.\n");
       g_encoder_motor_0.RunPwmDuty(-em::Motor::kMaxPwmDuty);
@@ -249,9 +284,9 @@ void loop() {
   }
 
   if (millis() - g_servo_last_update_time >= kServoUpdateIntervalMs) {
-    const bool square = g_codex_pad.pressed(CodexPad::Button::kSquareX);
-    const bool triangle = g_codex_pad.pressed(CodexPad::Button::kTriangleY);
-    const bool circle = g_codex_pad.pressed(CodexPad::Button::kCircleB);
+    const bool square = it.pressed(Button::kSquareX);
+    const bool triangle = it.pressed(Button::kTriangleY);
+    const bool circle = it.pressed(Button::kCircleB);
 
     if (square && !circle && !triangle) {
       // Square按钮：设置舵机角度为0度 | Square button: set servo angle to 0 degrees.

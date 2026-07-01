@@ -1,9 +1,3 @@
 BasedOnStyle: Google
 
-ColumnLimit: 150
-
-AllowShortFunctionsOnASingleLine: None
-
-BinPackArguments: false
-
-BinPackParameters: false
+ColumnLimit: 128
