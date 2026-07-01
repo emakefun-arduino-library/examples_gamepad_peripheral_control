@@ -1,5 +1,35 @@
 
 /**
+ * @~English
+ * @brief Control a Mecanum wheel car (with pan/tilt and claw servos) using the CodexPad-S10 gamepad.
+ * @details Control the omnidirectional movement, speed adjustment, pan/tilt and claw of a Mecanum wheel car via gamepad
+ * buttons.
+ *          - Up button (holding): Move forward.
+ *          - Down button (holding): Move backward.
+ *          - Left button (holding): Strafe left.
+ *          - Right button (holding): Strafe right.
+ *          - Up + Right (holding): Move forward-right 45°.
+ *          - Down + Left (holding): Move backward-left 45°.
+ *          - Up + Left (holding): Move forward-left 45°.
+ *          - Down + Right (holding): Move backward-right 45°.
+ *          - Square button (holding): Rotate counterclockwise.
+ *          - Circle button (holding): Rotate clockwise.
+ *          - L1 button (pressed): Increase motor speed (+5 per press, range 0-255).
+ *          - R1 button (pressed): Decrease motor speed (-5 per press, range 0-255).
+ *          - Triangle button (holding): Pan/tilt up (angle gradually increases).
+ *          - Cross button (holding): Pan/tilt down (angle gradually decreases).
+ *          - L2 button (holding): Open claw (angle gradually increases).
+ *          - R2 button (holding): Close claw (angle gradually decreases).
+ *          - No button input: All motors brake.
+ *
+ * @note Debugging Notes:
+ *       - The hardware serial (D0/D1) is occupied by the Bluetooth module and cannot be used for debug output.
+ *       - The SoftwareSerial soft serial port conflicts with the Emakefun Motor Driver library and cannot be used
+ *         simultaneously.
+ *       - Therefore, this example does not include any serial debug output. For debugging, it is recommended to use LED
+ *         indicators or buzzers instead.
+ */
+/**
  * @~Chinese
  * @brief 使用CodexPad-S10手柄控制麦克纳姆轮小车（含云台和夹子舵机）。
  * @details 通过手柄按钮控制麦克纳姆轮小车的全向移动、速度调节、云台俯仰和夹子开合。
@@ -26,46 +56,36 @@
  *       - SoftwareSerial 软串口与 Emakefun Motor Driver 库存在冲突，无法同时使用。
  *       - 因此本示例不包含任何串口调试输出，如需调试建议使用 LED 指示灯或蜂鸣器等方式。
  */
-/**
- * @~English
- * @brief Control a Mecanum wheel car (with pan/tilt and claw servos) using the CodexPad-S10 gamepad.
- * @details Control the omnidirectional movement, speed adjustment, pan/tilt and claw of a Mecanum wheel car via gamepad buttons.
- *          - Up button (holding): Move forward.
- *          - Down button (holding): Move backward.
- *          - Left button (holding): Strafe left.
- *          - Right button (holding): Strafe right.
- *          - Up + Right (holding): Move forward-right 45°.
- *          - Down + Left (holding): Move backward-left 45°.
- *          - Up + Left (holding): Move forward-left 45°.
- *          - Down + Right (holding): Move backward-right 45°.
- *          - Square button (holding): Rotate counterclockwise.
- *          - Circle button (holding): Rotate clockwise.
- *          - L1 button (pressed): Increase motor speed (+5 per press, range 0-255).
- *          - R1 button (pressed): Decrease motor speed (-5 per press, range 0-255).
- *          - Triangle button (holding): Pan/tilt up (angle gradually increases).
- *          - Cross button (holding): Pan/tilt down (angle gradually decreases).
- *          - L2 button (holding): Open claw (angle gradually increases).
- *          - R2 button (holding): Close claw (angle gradually decreases).
- *          - No button input: All motors brake.
- *
- * @note Debugging Notes:
- *       - The hardware serial (D0/D1) is occupied by the Bluetooth module and cannot be used for debug output.
- *       - The SoftwareSerial soft serial port conflicts with the Emakefun Motor Driver library and cannot be used simultaneously.
- *       - Therefore, this example does not include any serial debug output. For debugging, it is recommended to use LED indicators or buzzers
- * instead.
- */
 
 #include "Emakefun_MotorDriver.h"
-#include "codex_pad_frame_decoder.h"
+#include "gamepad_codec_decoder.h"
+
+/**
+ * IMPORTANT:
+ * This using directive is REQUIRED to directly access `Button` and `Axis`.
+ * Without it, you must write the fully qualified names:
+ *   gamepad::input::Button::kUp
+ *   gamepad::input::Axis::kLeftStickX
+ * Forgetting this line will cause compile errors when using Button or Axis.
+ */
+/**
+ * 重要：
+ * 必须使用该命名空间，否则无法直接访问 `Button` 和 `Axis`。
+ * 如果没有这一行，就必须写成完整限定名：
+ *   gamepad::input::Button::kUp
+ *   gamepad::input::Axis::kLeftStickX
+ * 忘记引入命名空间会导致编译失败。
+ */
+using namespace gamepad::input;
 
 namespace {
-// 替换为你的 CodexPad 的 Bluetooth device address。
-// Replace with your CodexPad device's Bluetooth device address.
+// Replace with your target device's Bluetooth device address.
+// 替换为目标设备的 Bluetooth device address。
 const String kBluetoothDeviceAddress = "16:00:00:00:03:27";
 
+// The serial port baud rate for communication with the Bluetooth module (please refer to the module data manual, replace with
+// the corresponding baud rate for the module).
 // 与蓝牙模块通信的串口波特率（请查阅模块数据手册，替换为模块对应的波特率）。
-// The serial port baud rate for communication with the Bluetooth module (please refer to the module data manual, replace with the corresponding baud
-// rate for the module).
 constexpr uint32_t kBluetoothModuleSerialBaudRate = 115200;
 
 constexpr uint8_t kPanTiltServoPin = 2;  // 云台俯仰舵机引脚。 | Pan-tilt servo pin.
@@ -115,20 +135,10 @@ Emakefun_DCMotor *g_left_back_motor = g_motor_driver.getMotor(kLeftBackMotorPort
 Emakefun_DCMotor *g_right_front_motor = g_motor_driver.getMotor(kRightFrontMotorPort);
 Emakefun_DCMotor *g_right_back_motor = g_motor_driver.getMotor(kRightBackMotorPort);
 
-// 此处解码器传入的串口实例，与 Connect() 中传入的为同一个串口实例。
 // The serial instance passed in by the decoder here is the same as the one passed in Connect().
-CodexPadFrameDecoder g_codex_pad_frame_decoder(Serial);
+// 此处解码器传入的串口实例，与 Connect() 中传入的为同一个串口实例。
+gamepad::codec::Decoder g_decoder(Serial);
 
-/**
- * @~Chinese
- * @brief 向蓝牙模块发送AT指令以建立BLE连接。
- * @details 依次执行AT指令序列，将蓝牙模块配置为主机模式并连接到指定MAC地址的目标设备。
- *          指令顺序：AT+DISCON → AT+RESET → AT+ECHO=0 → AT+ROLE=0 → AT+AUTOCON=0 → AT+CON=<mac>。
- * @param[in] bluetooth_stream 连接蓝牙模块的Stream对象。
- *                             注意：此对象必须与传入CodexPadFrameDecoder的Stream是同一个实例（如 Serial），
- *                             因为解码器正是从这同一个串口读取手柄发来的数据。
- * @param[in] bluetooth_device_address 目标设备的MAC地址，格式为 "XX:XX:XX:XX:XX:XX"。
- */
 /**
  * @~English
  * @brief Send AT commands to the Bluetooth module to establish a BLE connection.
@@ -140,40 +150,50 @@ CodexPadFrameDecoder g_codex_pad_frame_decoder(Serial);
  *                             (e.g., Serial), as the decoder reads incoming data from this same serial port.
  * @param[in] bluetooth_device_address MAC address of the target device in format "XX:XX:XX:XX:XX:XX".
  */
+/**
+ * @~Chinese
+ * @brief 向蓝牙模块发送 AT 指令以建立 BLE 连接。
+ * @details 依次执行 AT 指令序列，将蓝牙模块配置为主机模式并连接到指定 MAC 地址的目标设备。
+ *          指令顺序：AT+DISCON → AT+RESET → AT+ECHO=0 → AT+ROLE=0 → AT+AUTOCON=0 → AT+CON=<mac>。
+ * @param[in] bluetooth_stream 连接蓝牙模块的 Stream 对象。
+ *                             注意：此对象必须与传入 CodexPadFrameDecoder 的 Stream 是同一个实例（如 Serial），
+ *                             因为解码器正是从这同一个串口读取手柄发来的数据。
+ * @param[in] bluetooth_device_address 目标设备的 MAC 地址，格式为 "XX:XX:XX:XX:XX:XX"。
+ */
 void Connect(Stream &bluetooth_stream, const String &bluetooth_device_address) {
   if (bluetooth_device_address.length() != 17 || bluetooth_device_address[2] != ':' || bluetooth_device_address[5] != ':' ||
       bluetooth_device_address[8] != ':' || bluetooth_device_address[11] != ':' || bluetooth_device_address[14] != ':') {
-    while (true) {
-    };
+    while (true);
   }
 
+  // The module may be in a connected state. Send the disconnection command first to ensure the module is in an unconnected
+  // state.
   // 模块可能处于连接状态，先发送断开指令，确保模块是未连接状态。
-  // The module may be in a connected state. Send the disconnection command first to ensure the module is in an unconnected state.
   bluetooth_stream.println("AT+DISCON");
   delay(100);
 
-  // 软件复位蓝牙芯片，清除所有配对和配置数据。
   // Software reset BLE chip, clear all pairing and configuration data.
+  // 软件复位蓝牙芯片，清除所有配对和配置数据。
   bluetooth_stream.println("AT+RESET");
   delay(100);
 
-  // 关闭AT信息回显。
   // Close AT information echo.
+  // 关闭AT信息回显。
   bluetooth_stream.println("AT+ECHO=0");
   delay(100);
 
-  // 设置模块为主机模式，使其能够主动连接从机蓝牙。
   // Set the module to host mode so that it can actively connect to the BLE of the slave device.
+  // 设置模块为主机模式，使其能够主动连接从机蓝牙。
   bluetooth_stream.println("AT+ROLE=0");
   delay(100);
 
-  // 关闭模块的蓝牙自动连接模式。
   // Disable the module's automatic Bluetooth connection mode.
+  // 关闭模块的蓝牙自动连接模式。
   bluetooth_stream.println("AT+AUTOCON=0");
   delay(100);
 
-  // 使用指定的MAC地址发起与从机蓝牙连接。
   // Initiate BLE connection with the slave using the specified MAC address.
+  // 使用指定的MAC地址发起与从机蓝牙连接。
   bluetooth_stream.print("AT+CON=");
   bluetooth_stream.println(bluetooth_device_address);
   delay(100);
@@ -191,27 +211,55 @@ void setup() {
 }
 
 void loop() {
-  // 重要：Update()方法必须在循环中尽可能频繁地调用，不能添加延时。
-  // 该方法负责处理所有接收到的蓝牙数据包，延时会导致数据丢失和响应延迟。
-  // 对于实时控制应用，必须保持高频率调用以确保及时响应手柄输入。
-  // Important: Update() method must be called as frequently as possible in the loop, no delays should be added.
-  // This method processes all received Bluetooth packets, delays will cause data loss and response lag.
-  // For real-time control applications, high-frequency calls are essential to ensure prompt response to gamepad input.
-  g_codex_pad_frame_decoder.Update();
+  // ==========================================================================
+  // 🔴 CRITICAL: Call Update() as frequently as possible in loop()
+  // ==========================================================================
+  // • Update() processes incoming Bluetooth packets from the CodexPad
+  // • Any delay(...) or long blocking code WILL cause:
+  //     - Packet loss
+  //     - Input lag
+  //     - Unstable connection
+  //
+  // • For real-time control, call Update() every loop iteration
+  //   without any blocking operations
+  //
+  // 🔴【重要】Update() 必须在 loop() 中尽可能高频调用
+  // • Update() 负责处理来自 CodexPad 的蓝牙数据包
+  // • 任何形式的 delay 或阻塞代码都会导致：
+  //     - 数据丢失
+  //     - 响应延迟
+  //     - 连接不稳定
+  //
+  // • 实时控制应用中，必须每轮循环都调用 Update()，不可阻塞
+  // ==========================================================================
+  const Tracker &it = g_decoder.Update();
+  // ==========================================================================
+  // Tracker: Gamepad Input Snapshot & Change Engine
+  // ==========================================================================
+  // • Returned by Update()
+  // • Maintains previous and current input snapshots
+  // • Enables edge detection and delta detection
+  //
+  // Tracker 由 Update() 返回
+  // 内部保存上一帧和当前帧的输入数据
+  // 支持边沿检测和差值检测
+  //
+  // 📚 https://codexpad.github.io/gamepad_input_arduino_lib/
+  // ==========================================================================
 
-  if (g_codex_pad_frame_decoder.pressed(CodexPadFrameDecoder::Button::kL1)) {
+  if (it.pressed(Button::kL1)) {
     // 增加电机速度（按下L1按键）。 | Increase motor speed (pressed L1 button).
     g_motor_current_speed = constrain(g_motor_current_speed + kMotorSpeedStep, kMotorSpeedMin, kMotorSpeedMax);
-  } else if (g_codex_pad_frame_decoder.pressed(CodexPadFrameDecoder::Button::kR1)) {
+  } else if (it.pressed(Button::kR1)) {
     // 降低电机速度（按下R1按键）。 | Decrease motor speed (pressed R1 button).
     g_motor_current_speed = constrain(g_motor_current_speed - kMotorSpeedStep, kMotorSpeedMin, kMotorSpeedMax);
   }
 
   if (millis() - g_motor_last_update_time >= kMotorUpdateIntervalMs) {
-    const bool up = g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kUp);
-    const bool down = g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kDown);
-    const bool left = g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kLeft);
-    const bool right = g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kRight);
+    const bool up = it.holding(Button::kUp);
+    const bool down = it.holding(Button::kDown);
+    const bool left = it.holding(Button::kLeft);
+    const bool right = it.holding(Button::kRight);
 
     if (up && !left && !right) {
       // 前进（单独按住上方向按钮）。 | Move forward (hold Up button only).
@@ -293,7 +341,7 @@ void loop() {
       g_right_front_motor->run(BACKWARD);
       g_right_back_motor->run(BRAKE);
       g_motor_last_update_time = millis();
-    } else if (g_codex_pad_frame_decoder.button_state(CodexPadFrameDecoder::Button::kSquareX)) {
+    } else if (it.holding(Button::kSquareX)) {
       // 原地逆时针旋转（按住Square按钮）。 | Rotate counterclockwise (hold Square button).
       g_left_front_motor->setSpeed(g_motor_current_speed);
       g_left_front_motor->run(FORWARD);
@@ -304,7 +352,7 @@ void loop() {
       g_right_back_motor->setSpeed(g_motor_current_speed);
       g_right_back_motor->run(FORWARD);
       g_motor_last_update_time = millis();
-    } else if (g_codex_pad_frame_decoder.button_state(CodexPadFrameDecoder::Button::kCircleB)) {
+    } else if (it.holding(Button::kCircleB)) {
       // 原地顺时针旋转（按住Circle按钮）。 | Rotate clockwise (hold Circle button).
       g_left_front_motor->setSpeed(g_motor_current_speed);
       g_left_front_motor->run(BACKWARD);
@@ -325,28 +373,30 @@ void loop() {
     }
   }
 
-  if (g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kTriangleY) &&
-      (millis() - g_pan_tilt_servo_last_update_time >= kServoDelayMs)) {
+  if (it.holding(Button::kTriangleY) && (millis() - g_pan_tilt_servo_last_update_time >= kServoDelayMs)) {
     // 云台上仰（按住Triangle按钮）。 | Pan-tilt up (hold Triangle button).
-    g_pan_tilt_servo_current_angle = constrain(g_pan_tilt_servo_current_angle + kPanTiltServoAngleStep, kPanTiltServoAngleMin, kPanTiltServoAngleMax);
+    g_pan_tilt_servo_current_angle =
+        constrain(g_pan_tilt_servo_current_angle + kPanTiltServoAngleStep, kPanTiltServoAngleMin, kPanTiltServoAngleMax);
     g_pan_tilt_servo->writeServo(g_pan_tilt_servo_current_angle, kServoRunSpeed);
     g_pan_tilt_servo_last_update_time = millis();
-  } else if (g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kCrossA) &&
-             (millis() - g_pan_tilt_servo_last_update_time >= kServoDelayMs)) {
+  } else if (it.holding(Button::kCrossA) && (millis() - g_pan_tilt_servo_last_update_time >= kServoDelayMs)) {
     // 云台下俯（按住Cross按钮）。 | Pan-tilt down (hold Cross button).
-    g_pan_tilt_servo_current_angle = constrain(g_pan_tilt_servo_current_angle - kPanTiltServoAngleStep, kPanTiltServoAngleMin, kPanTiltServoAngleMax);
+    g_pan_tilt_servo_current_angle =
+        constrain(g_pan_tilt_servo_current_angle - kPanTiltServoAngleStep, kPanTiltServoAngleMin, kPanTiltServoAngleMax);
     g_pan_tilt_servo->writeServo(g_pan_tilt_servo_current_angle, kServoRunSpeed);
     g_pan_tilt_servo_last_update_time = millis();
   }
 
-  if (g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kL2) && (millis() - g_claw_servo_last_update_time >= kServoDelayMs)) {
+  if (it.holding(Button::kL2) && (millis() - g_claw_servo_last_update_time >= kServoDelayMs)) {
     // 夹子张开（按住L2按钮）。 | Open claw (hold L2 button).
-    g_claw_servo_current_angle = constrain(g_claw_servo_current_angle + kClawServoAngleStep, kClawServoAngleMin, kClawServoAngleMax);
+    g_claw_servo_current_angle =
+        constrain(g_claw_servo_current_angle + kClawServoAngleStep, kClawServoAngleMin, kClawServoAngleMax);
     g_claw_servo->writeServo(g_claw_servo_current_angle, kServoRunSpeed);
     g_claw_servo_last_update_time = millis();
-  } else if (g_codex_pad_frame_decoder.holding(CodexPadFrameDecoder::Button::kR2) && (millis() - g_claw_servo_last_update_time >= kServoDelayMs)) {
+  } else if (it.holding(Button::kR2) && (millis() - g_claw_servo_last_update_time >= kServoDelayMs)) {
     // 夹子闭合（按住R2按钮）。 | Close claw (hold R2 button).
-    g_claw_servo_current_angle = constrain(g_claw_servo_current_angle - kClawServoAngleStep, kClawServoAngleMin, kClawServoAngleMax);
+    g_claw_servo_current_angle =
+        constrain(g_claw_servo_current_angle - kClawServoAngleStep, kClawServoAngleMin, kClawServoAngleMax);
     g_claw_servo->writeServo(g_claw_servo_current_angle, kServoRunSpeed);
     g_claw_servo_last_update_time = millis();
   }
