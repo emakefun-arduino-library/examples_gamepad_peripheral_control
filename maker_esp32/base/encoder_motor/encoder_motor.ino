@@ -20,6 +20,8 @@
 #include "codex_pad.h"
 #include "encoder_motor.h"
 #include "motor.h"
+#include "cyf.h"
+#include "cyf/log.h"
 
 /**
  * IMPORTANT:
@@ -42,7 +44,7 @@ using namespace gamepad::input;
 namespace {
 // Replace with your CodexPad device's Bluetooth device address.
 // 替换为你的 CodexPad 的 Bluetooth device address。
-const std::string kBluetoothDeviceAddress = "16:00:00:00:03:27";
+const std::string kBluetoothDeviceAddress = "16:00:00:00:19:94";
 
 constexpr gpio_num_t kEncoderMotor0PositivePin = GPIO_NUM_27;  // 编码电机0正极引脚。 | Encoder motor 0 positive pin.
 constexpr gpio_num_t kEncoderMotor0NegativePin = GPIO_NUM_13;  // 编码电机0负极引脚。 | Encoder motor 0 negative pin.
@@ -98,38 +100,32 @@ em::EncoderMotor g_encoder_motor_2(kEncoderMotor2PositivePin, kEncoderMotor2Nega
 em::EncoderMotor g_encoder_motor_3(kEncoderMotor3PositivePin, kEncoderMotor3NegativePin, kEncoderMotor3EncoderPinA,
                                    kEncoderMotor3EncoderPinB, kEncoderPpr, kReductionRatio, kEncoderPhaseRelation);
 
-CodexPad g_codex_pad;
+codex_pad::Client g_codex_pad_client;
 
 void Connect() {
-  printf("Start to connect %s\n", kBluetoothDeviceAddress.c_str());
-  // Connect to the CodexPad with specified Bluetooth device address.
-  // 连接到指定蓝牙设备地址的手柄。
-  while (!g_codex_pad.Connect(kBluetoothDeviceAddress, kConnectionTimeoutMs)) {
-    printf("Retry to connect %s\n", kBluetoothDeviceAddress.c_str());
+  CLOGI("Start to connect %s", kBluetoothDeviceAddress.c_str());
+  // Connect to the CodexPad with specified Bluetooth device address
+  // 连接到指定蓝牙设备地址的手柄
+  while (!g_codex_pad_client.Connect(kBluetoothDeviceAddress, 5000)) {
+    CLOGI("Retry to connect %s", kBluetoothDeviceAddress.c_str());
   }
 
-  if (const auto ble_client = g_codex_pad.ble_client(); ble_client != nullptr) {
-    printf("Remote Bluetooth Device Address: %s\n", ble_client->getPeerAddress().toString().c_str());
+  CLOGI("Remote device name: %s", g_codex_pad_client.remote_device_name().c_str());
+  CLOGI("Remote model number: %s", g_codex_pad_client.remote_model_number().c_str());
+  CLOGI("Remote firmware revision: %u.%u.%u", g_codex_pad_client.remote_firmware_version()[0],
+        g_codex_pad_client.remote_firmware_version()[1], g_codex_pad_client.remote_firmware_version()[2]);
+
+  if (const auto ble_client = g_codex_pad_client.ble_client(); ble_client != nullptr) {
+    CLOGI("Remote Bluetooth Device Address: %s", ble_client->getPeerAddress().toString().c_str());
   } else {
-    printf("Remote Bluetooth Device Address: unknown.\n");
+    CLOGI("Remote Bluetooth Device Address: unknown");
   }
 
-  // Set transmission power to 0dBm.
-  // Transmission power affects communication range and power consumption:
-  // Higher power provides longer range but consumes more battery.
-  // Choose appropriate power level based on your application to balance range and battery life.
-  // 设置发射功率为0dBm。
-  // 发射功率影响通信距离和功耗：功率越高，通信距离越远，但功耗也越大。
-  // 建议根据实际应用场景选择合适的功率等级以平衡距离和电池寿命。
-  if (g_codex_pad.set_remote_tx_power(CodexPad::TxPower::k0dBm)) {
-    printf("Set remote tx power to 0dBm successfully.\n");
-  }
-
-  printf("Connected.\n");
+  CLOGI("Connected");
 }
 
 void EncoderMotorInit() {
-  printf("Encoder motor driver init.\n");
+  CLOGI("Encoder motor driver init.\n");
   g_encoder_motor_0.Init();
   g_encoder_motor_1.Init();
   g_encoder_motor_2.Init();
@@ -150,8 +146,8 @@ void EncoderMotorInit() {
 void setup() {
   EncoderMotorInit();
 
-  printf("CodexPad Init.\n");
-  g_codex_pad.Init();
+  CLOGI("CodexPad Init.\n");
+  g_codex_pad_client.Init();
 
   Connect();
 }
@@ -178,7 +174,7 @@ void loop() {
   //
   // • 实时控制应用中，必须每轮循环都调用 Update()，不可阻塞
   // ==========================================================================
-  const Tracker& it = g_codex_pad.Update();
+  const gamepad::input::Tracker& it = g_codex_pad_client.Update();
   // ==========================================================================
   // Tracker: Gamepad Input Snapshot & Change Engine
   // ==========================================================================
@@ -193,8 +189,8 @@ void loop() {
   // 📚 https://codexpad.github.io/gamepad_input_arduino_lib/
   // ==========================================================================
 
-  if (!g_codex_pad.is_connected()) {
-    printf("Disconnected, start to reconnect.\n");
+  if (!g_codex_pad_client.is_connected()) {
+    CLOGI("Disconnected, start to reconnect.\n");
     Connect();
     return;
   }
@@ -202,7 +198,7 @@ void loop() {
   if (millis() - g_motor_last_update_time >= kMotorUpdateIntervalMs) {
     if (it.holding(Button::kCrossA)) {
       // Cross按钮：刹车 | Cross button: brake.
-      printf("Brake.\n");
+      CLOGI("Brake.\n");
       g_encoder_motor_0.Stop();
       g_encoder_motor_1.Stop();
       g_encoder_motor_2.Stop();
@@ -210,7 +206,7 @@ void loop() {
       g_motor_last_update_time = millis();
     } else if (it.holding(Button::kUp) && !it.holding(Button::kDown)) {
       // 上方向键：电机正转 | Up button: move forward.
-      printf("Forward.\n");
+      CLOGI("Forward.\n");
       g_encoder_motor_0.RunPwmDuty(em::Motor::kMaxPwmDuty);
       g_encoder_motor_1.RunPwmDuty(em::Motor::kMaxPwmDuty);
       g_encoder_motor_2.RunPwmDuty(em::Motor::kMaxPwmDuty);
@@ -218,7 +214,7 @@ void loop() {
       g_motor_last_update_time = millis();
     } else if (it.holding(Button::kDown) && !it.holding(Button::kUp)) {
       // 下方向键：电机反转 | Down button: move backward.
-      printf("Reverse.\n");
+      CLOGI("Reverse.\n");
       g_encoder_motor_0.RunPwmDuty(-em::Motor::kMaxPwmDuty);
       g_encoder_motor_1.RunPwmDuty(-em::Motor::kMaxPwmDuty);
       g_encoder_motor_2.RunPwmDuty(-em::Motor::kMaxPwmDuty);
@@ -226,7 +222,7 @@ void loop() {
       g_motor_last_update_time = millis();
     } else {
       // 无输入：停止 | No input: stop.
-      printf("Stop.\n");
+      CLOGI("Stop.\n");
       g_encoder_motor_0.RunPwmDuty(0);
       g_encoder_motor_1.RunPwmDuty(0);
       g_encoder_motor_2.RunPwmDuty(0);

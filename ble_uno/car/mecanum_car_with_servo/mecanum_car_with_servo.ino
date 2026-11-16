@@ -81,7 +81,7 @@ using namespace gamepad::input;
 namespace {
 // Replace with your target device's Bluetooth device address.
 // 替换为目标设备的 Bluetooth device address。
-const String kBluetoothDeviceAddress = "16:00:00:00:03:27";
+const String kBluetoothDeviceAddress = "16:00:00:00:19:94";
 
 // The serial port baud rate for communication with the Bluetooth module (please refer to the module data manual, replace with
 // the corresponding baud rate for the module).
@@ -232,7 +232,7 @@ void loop() {
   //
   // • 实时控制应用中，必须每轮循环都调用 Update()，不可阻塞
   // ==========================================================================
-  const Tracker &it = g_decoder.Update();
+  const gamepad::input::Tracker &it = g_decoder.Update();
   // ==========================================================================
   // Tracker: Gamepad Input Snapshot & Change Engine
   // ==========================================================================
