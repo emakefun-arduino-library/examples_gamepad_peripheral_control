@@ -42,10 +42,10 @@
 
 | 硬件方案（点击查看示例说明） |
 | :--- |
-| [MAKER-ESP32开发板（板载电机驱动）](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_maker_esp32.zh-CN.md#codexpad-s10手柄控制示例maker-esp32开发板示例说明) |
-| [MAKER-ESP32-PRO开发板（板载电机驱动）](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_maker_esp32_pro.zh-CN.md#codexpad-s10手柄控制示例maker-esp32-pro开发板示例说明) |
-| [AI-VOX3开发板 + MD40驱动模块](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_ai_vox3_.zh-CN.md#codexpad-s10手柄控制示例ai-vox3开发板示例说明) |
-| [BLE-UNO开发板 + MotorDriverBoard V5.2驱动板](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_ble_uno.zh-CN.md#codexpad-s10手柄控制示例ble-uno开发板示例说明) |
+| [MAKER-ESP32开发板（板载电机驱动）](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_maker_esp32_base.zh-CN.md#codexpad-s10手柄控制示例maker-esp32开发板示例说明) |
+| [MAKER-ESP32-PRO开发板（板载电机驱动）](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_maker_esp32_pro_base.zh-CN.md#codexpad-s10手柄控制示例maker-esp32-pro开发板示例说明) |
+| [AI-VOX3开发板 + MD40驱动模块](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_ai_vox3_base.zh-CN.md#codexpad-s10手柄控制示例ai-vox3开发板示例说明) |
+| [BLE-UNO开发板 + MotorDriverBoard V5.2驱动板](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_ble_uno_base.zh-CN.md#codexpad-s10手柄控制示例ble-uno开发板示例说明) |
 
 ### 麦克纳姆轮小车示例（car/）
 
@@ -53,4 +53,4 @@
 
 | 硬件方案（点击查看示例说明） |
 | :--- |
-| [BLE-UNO开发板 + MotorDriverBoard V5.2驱动板](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_ble_uno_car.zh-CN.zh-CN.md#codexpad-s10手柄控制麦克纳姆轮小车ble-uno开发板示例说明) |
+| [BLE-UNO开发板 + MotorDriverBoard V5.2驱动板](https://gitee.com/nulllab_1/docs_examples_gamepad_peripheral_control/blob/main/examples_description_ble_uno_car.zh-CN.md#codexpad-s10手柄控制麦克纳姆轮小车ble-uno开发板示例说明) |
